@@ -32,8 +32,8 @@ class Settings(BaseSettings):
 
     # --- Grok / xAI ---
     GROK_API_KEY: str = Field(..., description="xAI API key for Grok")
-    GROK_BASE_URL: str = "https://api.x.ai/v1"
-    GROK_MODEL: str = "grok-3-latest"
+    GROK_BASE_URL: str = "https://openrouter.ai/api/v1"
+    GROK_MODEL: str = "meta-llama/llama-3.3-70b-instruct"
     GROK_TIMEOUT_SECONDS: float = 15.0
     GROK_MAX_TOKENS: int = 512
 

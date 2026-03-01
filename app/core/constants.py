@@ -2,10 +2,7 @@
 Conversation state machine constants and localised response strings.
 """
 
-from enum import str, auto
-
-
-class ConversationState(str):
+class ConversationState:
     """String-based state names stored in MongoDB."""
     NEW = "NEW"
     AWAITING_LANGUAGE = "AWAITING_LANGUAGE"

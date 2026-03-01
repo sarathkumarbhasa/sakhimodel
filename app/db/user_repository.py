@@ -24,7 +24,7 @@ async def get_user(telegram_id: int) -> Optional[UserDocument]:
         db = get_db()
         doc = await db[COLLECTION].find_one({"telegram_id": telegram_id})
         if doc:
-            return UserDocument(**doc)
+            return UserDocument.model_validate(doc)
         return None
     except PyMongoError as exc:
         logger.error("get_user failed", extra={"telegram_id": telegram_id}, exc_info=exc)
@@ -36,16 +36,18 @@ async def upsert_user(user: UserDocument) -> None:
     try:
         db = get_db()
         now = datetime.now(tz=timezone.utc)
-        update = {
-            "$set": {
-                **user.model_dump(exclude={"id"}, exclude_none=True),
-                "updated_at": now,
-            },
-            "$setOnInsert": {"created_at": now},
-        }
+
+        # Build $set payload — exclude _id, created_at (managed separately)
+        data = user.model_dump(exclude={"id"}, exclude_none=True)
+        data.pop("created_at", None)  # never put created_at in $set
+        data["updated_at"] = now
+
         await db[COLLECTION].update_one(
             {"telegram_id": user.telegram_id},
-            update,
+            {
+                "$set": data,
+                "$setOnInsert": {"created_at": now},
+            },
             upsert=True,
         )
         logger.debug("User upserted", extra={"telegram_id": user.telegram_id})

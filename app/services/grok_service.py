@@ -37,7 +37,6 @@ You are NOT a replacement for professional medical care."""
 async def ask_grok(user_message: str, language: str = "en") -> str:
     """
     Send a message to Grok via xAI API and return the assistant's reply.
-
     Raises GrokAPIError on network failure, timeout, or API error.
     """
     lang_instruction = {
@@ -46,6 +45,7 @@ async def ask_grok(user_message: str, language: str = "en") -> str:
     }.get(language, "Respond in English.")
 
     messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": f"{lang_instruction}\n\n{user_message}"},
     ]
 
@@ -59,8 +59,12 @@ async def ask_grok(user_message: str, language: str = "en") -> str:
         "messages": messages,
         "max_tokens": settings.GROK_MAX_TOKENS,
         "temperature": 0.6,
-        "system": SYSTEM_PROMPT,
     }
+
+    logger.info(
+        "Calling Grok API",
+        extra={"model": settings.GROK_MODEL, "language": language},
+    )
 
     try:
         async with httpx.AsyncClient(
@@ -81,9 +85,11 @@ async def ask_grok(user_message: str, language: str = "en") -> str:
                 extra={
                     "status_code": response.status_code,
                     "detail": error_detail,
+                    "model": settings.GROK_MODEL,
+                    "base_url": settings.GROK_BASE_URL,
                 },
             )
-            raise GrokAPIError(f"Grok API returned {response.status_code}")
+            raise GrokAPIError(f"Grok API returned {response.status_code}: {error_detail}")
 
         data = response.json()
         content: Optional[str] = (

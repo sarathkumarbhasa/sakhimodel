@@ -1,10 +1,8 @@
 """
 Pydantic models for Telegram Bot API webhook payloads.
-Only includes fields Sakhi needs — ignores the rest.
 """
 
 from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -21,11 +19,17 @@ class TelegramChat(BaseModel):
     type: str
 
 
+class TelegramLocation(BaseModel):
+    latitude: float
+    longitude: float
+
+
 class TelegramMessage(BaseModel):
     message_id: int
     from_: Optional[TelegramUser] = Field(None, alias="from")
     chat: TelegramChat
     text: Optional[str] = None
+    location: Optional[TelegramLocation] = None
     date: int = 0
 
     model_config = {"populate_by_name": True}

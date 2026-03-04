@@ -1,3 +1,4 @@
+from typing import Optional
 """
 Environment-based configuration for Sakhi.
 All secrets loaded from environment variables — no hardcoded values.

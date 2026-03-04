@@ -55,12 +55,21 @@ MOOD_KEYWORDS = {
         "வயிற்று வலி", "சோர்ந்து", "படபடப்பு", "வலிக்கிறது",
     ],
     "te": [
+        # Telugu Unicode script
         "విచారం", "అలసట", "నొప్పి", "కోపం", "ఒత్తిడి", "ఆందోళన",
         "తలనొప్పి", "వికారం", "నిద్రలేమి", "భారంగా", "అలసిన",
         "బాధగా", "నీరసం", "కడుపునొప్పి", "ఏడుపు", "భయం",
         "ఒంటరిగా", "కంగారు", "చికాకు", "నీరసంగా", "కడుపు నొప్పి",
-        "నొప్పిగా", "నొప్పి వస్తోంది", "నొప్పి ఉంది", "నొప్పి తగ్గడం",
-        "బాధ", "వేదన", "క్రాంప్స్", "నొప్పులు",
+        "నొప్పిగా", "నొప్పి వస్తోంది", "నొప్పి ఉంది", "బాధ", "వేదన", "క్రాంప్స్",
+        # Romanized Telugu (users often type this way)
+        "noppi", "noppiga", "thala noppi", "thala noppiga", "tala noppi",
+        "badha", "badhaga", "alasata", "alasina", "neerasam", "neerasanga",
+        "kopam", "kopanga", "tension", "kastam", "kastem", "kasham",
+        "vantiga", "vomiting", "nidra", "nidra radu", "nidraledhu",
+        "bayam", "bayanga", "stomach pain", "head ache", "headache",
+        "belly pain", "gudda noppi", "heavy bleeding", "weak", "weakness",
+        "blood", "cramping", "periods pain", "period pain", "period noppi",
+        "thala tirugutundi", "thala heavy", "thala vediగా",
     ],
 }
 
@@ -78,17 +87,17 @@ def detect_mood(text: str, language: str = "en") -> bool:
 def classify_mood(text: str) -> str:
     """Map message to mood category for targeted recommendations."""
     t = text.lower()
-    if any(w in t for w in ["pain", "cramp", "నొప్పి", "కడుపు నొప్పి", "కడుపునొప్పి", "నొప్పులు", "నొప్పిగా", "क्रैम्प", "पेट दर्द", "வலி", "வயிற்று வலி"]):
+    if any(w in t for w in ["pain", "cramp", "noppi", "noppiga", "thala noppi", "tala noppi", "stomach pain", "period pain", "నొప్పి", "కడుపు నొప్పి", "కడుపునొప్పి", "నొప్పులు", "నొప్పిగా", "पेट दर्द", "வலி", "வயிற்று வலி"]):
         return "pain"
-    if any(w in t for w in ["stress", "anxious", "panic", "worried", "ఒత్తిడి", "ఆందోళన", "కంగారు", "तनाव", "घबराहट", "மன அழுத்தம்", "படபடப்பு"]):
+    if any(w in t for w in ["stress", "anxious", "panic", "worried", "tension", "kastam", "kastem", "ఒత్తిడి", "ఆందోళన", "కంగారు", "तनाव", "घबराहट", "மன அழுத்தம்", "படபடப்பு"]):
         return "stress"
-    if any(w in t for w in ["sad", "cry", "depress", "lonely", "hopeless", "విచారం", "ఏడుపు", "ఒంటరిగా", "బాధ", "वेदना", "उदास", "अकेला", "சோகம்", "அழுகை", "தனிமை"]):
+    if any(w in t for w in ["sad", "cry", "depress", "lonely", "hopeless", "badha", "badhaga", "kastam", "విచారం", "ఏడుపు", "ఒంటరిగా", "బాధ", "उदास", "अकेला", "சோகம்", "அழுகை", "தனிமை"]):
         return "sadness"
-    if any(w in t for w in ["tired", "exhaust", "fatigue", "no energy", "అలసట", "నీరసం", "నీరసంగా", "थकान", "थका", "சோர்வு", "சோர்ந்து"]):
+    if any(w in t for w in ["tired", "exhaust", "fatigue", "no energy", "alasata", "alasina", "neerasam", "weak", "weakness", "అలసట", "నీరసం", "నీరసంగా", "थकान", "थका", "சோர்வு", "சோர்ந்து"]):
         return "fatigue"
-    if any(w in t for w in ["angry", "irritab", "కోపం", "చికాకు", "गुस्सा", "चिड़चिड़ा", "கோபம்"]):
+    if any(w in t for w in ["angry", "irritab", "kopam", "kopanga", "కోపం", "చికాకు", "गुस्सा", "चिड़चिड़ा", "கோபம்"]):
         return "anger"
-    if any(w in t for w in ["sleep", "నిద్రలేమి", "నిద్ర", "नींद", "தூக்கமின்மை"]):
+    if any(w in t for w in ["sleep", "nidra", "nidraledhu", "నిద్రలేమి", "నిద్ర", "नींद", "தூக்கமின்மை"]):
         return "insomnia"
     return "general"
 

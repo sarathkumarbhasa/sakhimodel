@@ -1,10 +1,9 @@
 """
 AI service via OpenRouter.
-Includes mood detection, yoga links, mudra links, and frequency music links.
+Full multilingual support: English, Hindi, Tamil, Telugu.
 """
 
 import logging
-import random
 from typing import Optional
 
 import httpx
@@ -47,136 +46,21 @@ MOOD_KEYWORDS = {
         "scared", "lonely", "hopeless", "panic", "irritated",
     ],
     "hi": [
-        "उदास", "थकान", "दर्द", "चिड़चिड़ा", "तनाव", "घबराहट",
-        "रो", "नींद", "थका", "सिरदर्द", "मतली", "भारी", "परेशान", "बेचैन",
+        "उदास", "थकान", "दर्द", "चिड़चिड़ा", "तनाव", "घबराहट", "रो",
+        "नींद", "थका", "सिरदर्द", "मतली", "भारी", "परेशान", "बेचैन",
+        "अकेला", "डर", "गुस्सा", "कमज़ोर", "थकी", "दर्द हो रहा",
     ],
     "ta": [
         "சோர்வு", "வலி", "கோபம்", "மன அழுத்தம்", "தலைவலி", "குமட்டல்",
-        "தூக்கமின்மை", "அழுகை", "கவலை",
+        "தூக்கமின்மை", "அழுகை", "கவலை", "சோகம்", "பயம்", "தனிமை",
+        "வயிற்று வலி", "சோர்ந்து", "படபடப்பு",
     ],
     "te": [
         "విచారం", "అలసట", "నొప్పి", "కోపం", "ఒత్తిడి", "ఆందోళన",
         "తలనొప్పి", "వికారం", "నిద్రలేమి", "భారంగా", "అలసిన",
         "బాధగా", "నీరసం", "కడుపునొప్పి", "ఏడుపు", "భయం",
+        "ఒంటరిగా", "కంగారు", "చికాకు", "నీరసంగా",
     ],
-}
-
-# ---------------------------------------------------------------------------
-# Mood → category mapping
-# ---------------------------------------------------------------------------
-def classify_mood(text: str) -> str:
-    """Map message to a mood category for targeted recommendations."""
-    t = text.lower()
-    if any(w in t for w in ["pain", "cramp", "నొప్పి", "కడుపునొప్పి", "दर्द", "வலி"]):
-        return "pain"
-    if any(w in t for w in ["stress", "anxious", "panic", "worried", "తనాव", "ఒత్తిడి", "तनाव", "மன அழுத்தம்"]):
-        return "stress"
-    if any(w in t for w in ["sad", "cry", "depress", "lonely", "hopeless", "విచారం", "ఏడుపు", "उदास", "சோகம்"]):
-        return "sadness"
-    if any(w in t for w in ["tired", "exhaust", "fatigue", "no energy", "అలసట", "నీరసం", "थकान", "சோர்வு"]):
-        return "fatigue"
-    if any(w in t for w in ["angry", "irritab", "కోపం", "चिड़चिड़ा", "கோபம்"]):
-        return "anger"
-    if any(w in t for w in ["sleep", "నిద్రలేమి", "नींद", "தூக்கமின்மை"]):
-        return "insomnia"
-    return "general"
-
-# ---------------------------------------------------------------------------
-# Yoga links by mood
-# ---------------------------------------------------------------------------
-YOGA_BY_MOOD: dict[str, list[tuple]] = {
-    "pain": [
-        ("Child's Pose", "https://www.youtube.com/results?search_query=balasana+period+cramp+relief"),
-        ("Supine Twist", "https://www.youtube.com/results?search_query=supine+twist+period+pain"),
-        ("Cat-Cow", "https://www.youtube.com/results?search_query=cat+cow+stretch+menstrual+pain"),
-    ],
-    "stress": [
-        ("Child's Pose", "https://www.youtube.com/results?search_query=childs+pose+stress+relief"),
-        ("Legs Up Wall", "https://www.youtube.com/results?search_query=viparita+karani+anxiety+relief"),
-        ("Forward Fold", "https://www.youtube.com/results?search_query=standing+forward+fold+stress"),
-    ],
-    "sadness": [
-        ("Heart Opener", "https://www.youtube.com/results?search_query=heart+opening+yoga+sadness"),
-        ("Butterfly Pose", "https://www.youtube.com/results?search_query=baddha+konasana+mood+lift"),
-        ("Sun Salutation", "https://www.youtube.com/results?search_query=surya+namaskar+depression+yoga"),
-    ],
-    "fatigue": [
-        ("Legs Up Wall", "https://www.youtube.com/results?search_query=viparita+karani+fatigue+energy"),
-        ("Corpse Pose", "https://www.youtube.com/results?search_query=savasana+restore+energy"),
-        ("Restorative Yoga", "https://www.youtube.com/results?search_query=restorative+yoga+tiredness"),
-    ],
-    "anger": [
-        ("Lion's Breath", "https://www.youtube.com/results?search_query=lion+breath+pranayama+anger"),
-        ("Seated Twist", "https://www.youtube.com/results?search_query=seated+spinal+twist+anger+release"),
-        ("Child's Pose", "https://www.youtube.com/results?search_query=childs+pose+calm+anger"),
-    ],
-    "insomnia": [
-        ("Legs Up Wall", "https://www.youtube.com/results?search_query=yoga+for+sleep+legs+up+wall"),
-        ("Body Scan", "https://www.youtube.com/results?search_query=yoga+nidra+insomnia+sleep"),
-        ("Forward Fold", "https://www.youtube.com/results?search_query=forward+fold+bedtime+yoga"),
-    ],
-    "general": [
-        ("Child's Pose", "https://www.youtube.com/results?search_query=balasana+period+pain"),
-        ("Legs Up Wall", "https://www.youtube.com/results?search_query=viparita+karani+menstrual"),
-        ("Cat-Cow", "https://www.youtube.com/results?search_query=cat+cow+stretch+period"),
-    ],
-}
-
-# ---------------------------------------------------------------------------
-# Mudras by mood
-# ---------------------------------------------------------------------------
-MUDRAS_BY_MOOD: dict[str, list[tuple]] = {
-    "pain": [
-        ("Apana Mudra 🤲", "https://www.youtube.com/results?search_query=apana+mudra+menstrual+pain"),
-        ("Shakti Mudra 🤲", "https://www.youtube.com/results?search_query=shakti+mudra+period+cramps"),
-    ],
-    "stress": [
-        ("Gyan Mudra 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+stress+anxiety+relief"),
-        ("Prana Mudra 🤲", "https://www.youtube.com/results?search_query=prana+mudra+calm+stress"),
-    ],
-    "sadness": [
-        ("Ahamkara Mudra 🤲", "https://www.youtube.com/results?search_query=ahamkara+mudra+confidence+sadness"),
-        ("Surya Mudra 🤲", "https://www.youtube.com/results?search_query=surya+mudra+energy+mood"),
-    ],
-    "fatigue": [
-        ("Prana Mudra 🤲", "https://www.youtube.com/results?search_query=prana+mudra+energy+fatigue"),
-        ("Surya Mudra 🤲", "https://www.youtube.com/results?search_query=surya+mudra+vitality+tiredness"),
-    ],
-    "anger": [
-        ("Shunya Mudra 🤲", "https://www.youtube.com/results?search_query=shunya+mudra+anger+calm"),
-        ("Vayu Mudra 🤲", "https://www.youtube.com/results?search_query=vayu+mudra+anger+relief"),
-    ],
-    "insomnia": [
-        ("Gyan Mudra 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+sleep+insomnia"),
-        ("Yoni Mudra 🤲", "https://www.youtube.com/results?search_query=yoni+mudra+deep+sleep"),
-    ],
-    "general": [
-        ("Gyan Mudra 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+menstrual+health"),
-        ("Apana Mudra 🤲", "https://www.youtube.com/results?search_query=apana+mudra+women+health"),
-    ],
-}
-
-# ---------------------------------------------------------------------------
-# Healing frequency music by mood
-# ---------------------------------------------------------------------------
-MUSIC_BY_MOOD: dict[str, tuple] = {
-    "pain":     ("174 Hz – Pain Relief 🎵", "https://www.youtube.com/results?search_query=174hz+pain+relief+solfeggio"),
-    "stress":   ("432 Hz – Deep Calm 🎵",   "https://www.youtube.com/results?search_query=432hz+stress+relief+calm+music"),
-    "sadness":  ("528 Hz – Heart Heal 🎵",  "https://www.youtube.com/results?search_query=528hz+emotional+healing+music"),
-    "fatigue":  ("285 Hz – Energy Boost 🎵","https://www.youtube.com/results?search_query=285hz+energy+healing+frequency"),
-    "anger":    ("396 Hz – Release Fear 🎵","https://www.youtube.com/results?search_query=396hz+release+anger+solfeggio"),
-    "insomnia": ("Delta 1-4 Hz – Sleep 🎵", "https://www.youtube.com/results?search_query=delta+waves+deep+sleep+music"),
-    "general":  ("432 Hz – Balance 🎵",     "https://www.youtube.com/results?search_query=432hz+menstrual+cycle+healing"),
-}
-
-# ---------------------------------------------------------------------------
-# Section titles by language
-# ---------------------------------------------------------------------------
-SECTION_TITLES = {
-    "en": {"yoga": "🧘 *Yoga*", "mudra": "🤲 *Mudras*", "music": "🎵 *Healing Music*"},
-    "hi": {"yoga": "🧘 *योग*",  "mudra": "🤲 *मुद्राएं*", "music": "🎵 *उपचार संगीत*"},
-    "ta": {"yoga": "🧘 *யோகா*", "mudra": "🤲 *முத்திரைகள்*", "music": "🎵 *குணமளிக்கும் இசை*"},
-    "te": {"yoga": "🧘 *యోగా*", "mudra": "🤲 *ముద్రలు*",    "music": "🎵 *హీలింగ్ మ్యూజిక్*"},
 }
 
 
@@ -186,30 +70,160 @@ def detect_mood(text: str, language: str = "en") -> bool:
     return any(k in text_lower for k in keywords)
 
 
+def classify_mood(text: str) -> str:
+    t = text.lower()
+    if any(w in t for w in ["pain", "cramp", "నొప్పి", "కడుపునొప్పి", "दर्द", "வலி", "வயிற்று"]):
+        return "pain"
+    if any(w in t for w in ["stress", "anxious", "panic", "worried", "ఒత్తిడి", "ఆందోళన", "కంగారు", "तनाव", "घबराहट", "மன அழுத்தம்", "படபடப்பு"]):
+        return "stress"
+    if any(w in t for w in ["sad", "cry", "depress", "lonely", "hopeless", "విచారం", "ఏడుపు", "ఒంటరిగా", "उदास", "अकेला", "சோகம்", "அழுகை", "தனிமை"]):
+        return "sadness"
+    if any(w in t for w in ["tired", "exhaust", "fatigue", "no energy", "అలసట", "నీరసం", "నీరసంగా", "थकान", "थका", "சோர்வு", "சோர்ந்து"]):
+        return "fatigue"
+    if any(w in t for w in ["angry", "irritab", "కోపం", "చికాకు", "गुस्सा", "चिड़चिड़ा", "கோபம்"]):
+        return "anger"
+    if any(w in t for w in ["sleep", "నిద్రలేమి", "नींद", "தூக்கமின்மை"]):
+        return "insomnia"
+    return "general"
+
+
+# ---------------------------------------------------------------------------
+# Multilingual yoga poses
+# ---------------------------------------------------------------------------
+YOGA_BY_MOOD: dict[str, dict[str, list[tuple]]] = {
+    "pain": {
+        "en": [("Child's Pose", "https://www.youtube.com/results?search_query=balasana+period+cramp+relief"), ("Supine Twist", "https://www.youtube.com/results?search_query=supine+twist+period+pain"), ("Cat-Cow", "https://www.youtube.com/results?search_query=cat+cow+stretch+menstrual+pain")],
+        "hi": [("बालासन (Child's Pose)", "https://www.youtube.com/results?search_query=balasana+period+cramp+relief"), ("सुप्त मत्स्येन्द्रासन", "https://www.youtube.com/results?search_query=supine+twist+period+pain"), ("मार्जरी आसन", "https://www.youtube.com/results?search_query=cat+cow+stretch+menstrual+pain")],
+        "ta": [("குழந்தை தோரணை", "https://www.youtube.com/results?search_query=balasana+period+cramp+relief"), ("சுப்த முறுக்கு", "https://www.youtube.com/results?search_query=supine+twist+period+pain"), ("பூனை-பசு நீட்சி", "https://www.youtube.com/results?search_query=cat+cow+stretch+menstrual+pain")],
+        "te": [("బాలాసన", "https://www.youtube.com/results?search_query=balasana+period+cramp+relief"), ("సుప్త మత్స్యేంద్రాసన", "https://www.youtube.com/results?search_query=supine+twist+period+pain"), ("మార్జరాసన", "https://www.youtube.com/results?search_query=cat+cow+stretch+menstrual+pain")],
+    },
+    "stress": {
+        "en": [("Child's Pose", "https://www.youtube.com/results?search_query=childs+pose+stress+relief"), ("Legs Up Wall", "https://www.youtube.com/results?search_query=viparita+karani+anxiety+relief"), ("Forward Fold", "https://www.youtube.com/results?search_query=standing+forward+fold+stress")],
+        "hi": [("बालासन", "https://www.youtube.com/results?search_query=childs+pose+stress+relief"), ("विपरीत करणी", "https://www.youtube.com/results?search_query=viparita+karani+anxiety+relief"), ("उत्तानासन", "https://www.youtube.com/results?search_query=standing+forward+fold+stress")],
+        "ta": [("குழந்தை தோரணை", "https://www.youtube.com/results?search_query=childs+pose+stress+relief"), ("கால்கள் மேலே சுவர்", "https://www.youtube.com/results?search_query=viparita+karani+anxiety+relief"), ("முன்னோக்கி மடக்கு", "https://www.youtube.com/results?search_query=standing+forward+fold+stress")],
+        "te": [("బాలాసన", "https://www.youtube.com/results?search_query=childs+pose+stress+relief"), ("విపరీత కరణి", "https://www.youtube.com/results?search_query=viparita+karani+anxiety+relief"), ("ఉత్తానాసన", "https://www.youtube.com/results?search_query=standing+forward+fold+stress")],
+    },
+    "sadness": {
+        "en": [("Heart Opener", "https://www.youtube.com/results?search_query=heart+opening+yoga+sadness"), ("Butterfly Pose", "https://www.youtube.com/results?search_query=baddha+konasana+mood+lift"), ("Sun Salutation", "https://www.youtube.com/results?search_query=surya+namaskar+depression+yoga")],
+        "hi": [("हृदय खोलने वाला आसन", "https://www.youtube.com/results?search_query=heart+opening+yoga+sadness"), ("बद्धकोणासन", "https://www.youtube.com/results?search_query=baddha+konasana+mood+lift"), ("सूर्य नमस्कार", "https://www.youtube.com/results?search_query=surya+namaskar+depression+yoga")],
+        "ta": [("இதய திறப்பு", "https://www.youtube.com/results?search_query=heart+opening+yoga+sadness"), ("பட்டாம்பூச்சி தோரணை", "https://www.youtube.com/results?search_query=baddha+konasana+mood+lift"), ("சூர்ய நமஸ்காரம்", "https://www.youtube.com/results?search_query=surya+namaskar+depression+yoga")],
+        "te": [("హృదయ విచ్చుకొలుపు", "https://www.youtube.com/results?search_query=heart+opening+yoga+sadness"), ("బద్ధ కోణాసన", "https://www.youtube.com/results?search_query=baddha+konasana+mood+lift"), ("సూర్య నమస్కారం", "https://www.youtube.com/results?search_query=surya+namaskar+depression+yoga")],
+    },
+    "fatigue": {
+        "en": [("Legs Up Wall", "https://www.youtube.com/results?search_query=viparita+karani+fatigue+energy"), ("Corpse Pose", "https://www.youtube.com/results?search_query=savasana+restore+energy"), ("Restorative Yoga", "https://www.youtube.com/results?search_query=restorative+yoga+tiredness")],
+        "hi": [("विपरीत करणी", "https://www.youtube.com/results?search_query=viparita+karani+fatigue+energy"), ("शवासन", "https://www.youtube.com/results?search_query=savasana+restore+energy"), ("पुनर्स्थापना योग", "https://www.youtube.com/results?search_query=restorative+yoga+tiredness")],
+        "ta": [("கால்கள் மேலே சுவர்", "https://www.youtube.com/results?search_query=viparita+karani+fatigue+energy"), ("சவாசனம்", "https://www.youtube.com/results?search_query=savasana+restore+energy"), ("மீட்சி யோகா", "https://www.youtube.com/results?search_query=restorative+yoga+tiredness")],
+        "te": [("విపరీత కరణి", "https://www.youtube.com/results?search_query=viparita+karani+fatigue+energy"), ("శవాసన", "https://www.youtube.com/results?search_query=savasana+restore+energy"), ("రిస్టోరేటివ్ యోగా", "https://www.youtube.com/results?search_query=restorative+yoga+tiredness")],
+    },
+    "anger": {
+        "en": [("Lion's Breath", "https://www.youtube.com/results?search_query=lion+breath+pranayama+anger"), ("Seated Twist", "https://www.youtube.com/results?search_query=seated+spinal+twist+anger+release"), ("Child's Pose", "https://www.youtube.com/results?search_query=childs+pose+calm+anger")],
+        "hi": [("सिंह प्राणायाम", "https://www.youtube.com/results?search_query=lion+breath+pranayama+anger"), ("बैठकर मेरुदंड मोड़", "https://www.youtube.com/results?search_query=seated+spinal+twist+anger+release"), ("बालासन", "https://www.youtube.com/results?search_query=childs+pose+calm+anger")],
+        "ta": [("சிங்க மூச்சு", "https://www.youtube.com/results?search_query=lion+breath+pranayama+anger"), ("இருக்கை முறுக்கு", "https://www.youtube.com/results?search_query=seated+spinal+twist+anger+release"), ("குழந்தை தோரணை", "https://www.youtube.com/results?search_query=childs+pose+calm+anger")],
+        "te": [("సింహ ప్రాణాయామ", "https://www.youtube.com/results?search_query=lion+breath+pranayama+anger"), ("కూర్చున్న వెన్నెముక మెలిక", "https://www.youtube.com/results?search_query=seated+spinal+twist+anger+release"), ("బాలాసన", "https://www.youtube.com/results?search_query=childs+pose+calm+anger")],
+    },
+    "insomnia": {
+        "en": [("Legs Up Wall", "https://www.youtube.com/results?search_query=yoga+for+sleep+legs+up+wall"), ("Yoga Nidra", "https://www.youtube.com/results?search_query=yoga+nidra+insomnia+sleep"), ("Forward Fold", "https://www.youtube.com/results?search_query=forward+fold+bedtime+yoga")],
+        "hi": [("विपरीत करणी", "https://www.youtube.com/results?search_query=yoga+for+sleep+legs+up+wall"), ("योग निद्रा", "https://www.youtube.com/results?search_query=yoga+nidra+insomnia+sleep"), ("उत्तानासन", "https://www.youtube.com/results?search_query=forward+fold+bedtime+yoga")],
+        "ta": [("கால்கள் மேலே", "https://www.youtube.com/results?search_query=yoga+for+sleep+legs+up+wall"), ("யோக நித்திரை", "https://www.youtube.com/results?search_query=yoga+nidra+insomnia+sleep"), ("முன்னோக்கி மடக்கு", "https://www.youtube.com/results?search_query=forward+fold+bedtime+yoga")],
+        "te": [("విపరీత కరణి", "https://www.youtube.com/results?search_query=yoga+for+sleep+legs+up+wall"), ("యోగ నిద్ర", "https://www.youtube.com/results?search_query=yoga+nidra+insomnia+sleep"), ("ఉత్తానాసన", "https://www.youtube.com/results?search_query=forward+fold+bedtime+yoga")],
+    },
+    "general": {
+        "en": [("Child's Pose", "https://www.youtube.com/results?search_query=balasana+period+pain"), ("Legs Up Wall", "https://www.youtube.com/results?search_query=viparita+karani+menstrual"), ("Cat-Cow", "https://www.youtube.com/results?search_query=cat+cow+stretch+period")],
+        "hi": [("बालासन", "https://www.youtube.com/results?search_query=balasana+period+pain"), ("विपरीत करणी", "https://www.youtube.com/results?search_query=viparita+karani+menstrual"), ("मार्जरी आसन", "https://www.youtube.com/results?search_query=cat+cow+stretch+period")],
+        "ta": [("குழந்தை தோரணை", "https://www.youtube.com/results?search_query=balasana+period+pain"), ("கால்கள் மேலே சுவர்", "https://www.youtube.com/results?search_query=viparita+karani+menstrual"), ("பூனை-பசு", "https://www.youtube.com/results?search_query=cat+cow+stretch+period")],
+        "te": [("బాలాసన", "https://www.youtube.com/results?search_query=balasana+period+pain"), ("విపరీత కరణి", "https://www.youtube.com/results?search_query=viparita+karani+menstrual"), ("మార్జరాసన", "https://www.youtube.com/results?search_query=cat+cow+stretch+period")],
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Multilingual mudra names
+# ---------------------------------------------------------------------------
+MUDRAS_BY_MOOD: dict[str, dict[str, list[tuple]]] = {
+    "pain": {
+        "en": [("Apana Mudra 🤲", "https://www.youtube.com/results?search_query=apana+mudra+menstrual+pain"), ("Shakti Mudra 🤲", "https://www.youtube.com/results?search_query=shakti+mudra+period+cramps")],
+        "hi": [("अपान मुद्रा 🤲", "https://www.youtube.com/results?search_query=apana+mudra+menstrual+pain"), ("शक्ति मुद्रा 🤲", "https://www.youtube.com/results?search_query=shakti+mudra+period+cramps")],
+        "ta": [("அபான முத்திரை 🤲", "https://www.youtube.com/results?search_query=apana+mudra+menstrual+pain"), ("சக்தி முத்திரை 🤲", "https://www.youtube.com/results?search_query=shakti+mudra+period+cramps")],
+        "te": [("అపాన ముద్ర 🤲", "https://www.youtube.com/results?search_query=apana+mudra+menstrual+pain"), ("శక్తి ముద్ర 🤲", "https://www.youtube.com/results?search_query=shakti+mudra+period+cramps")],
+    },
+    "stress": {
+        "en": [("Gyan Mudra 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+stress+anxiety+relief"), ("Prana Mudra 🤲", "https://www.youtube.com/results?search_query=prana+mudra+calm+stress")],
+        "hi": [("ज्ञान मुद्रा 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+stress+anxiety+relief"), ("प्राण मुद्रा 🤲", "https://www.youtube.com/results?search_query=prana+mudra+calm+stress")],
+        "ta": [("ஞான முத்திரை 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+stress+anxiety+relief"), ("பிராண முத்திரை 🤲", "https://www.youtube.com/results?search_query=prana+mudra+calm+stress")],
+        "te": [("జ్ఞాన ముద్ర 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+stress+anxiety+relief"), ("ప్రాణ ముద్ర 🤲", "https://www.youtube.com/results?search_query=prana+mudra+calm+stress")],
+    },
+    "sadness": {
+        "en": [("Ahamkara Mudra 🤲", "https://www.youtube.com/results?search_query=ahamkara+mudra+confidence+sadness"), ("Surya Mudra 🤲", "https://www.youtube.com/results?search_query=surya+mudra+energy+mood")],
+        "hi": [("अहंकार मुद्रा 🤲", "https://www.youtube.com/results?search_query=ahamkara+mudra+confidence+sadness"), ("सूर्य मुद्रा 🤲", "https://www.youtube.com/results?search_query=surya+mudra+energy+mood")],
+        "ta": [("அகங்கார முத்திரை 🤲", "https://www.youtube.com/results?search_query=ahamkara+mudra+confidence+sadness"), ("சூர்ய முத்திரை 🤲", "https://www.youtube.com/results?search_query=surya+mudra+energy+mood")],
+        "te": [("అహంకార ముద్ర 🤲", "https://www.youtube.com/results?search_query=ahamkara+mudra+confidence+sadness"), ("సూర్య ముద్ర 🤲", "https://www.youtube.com/results?search_query=surya+mudra+energy+mood")],
+    },
+    "fatigue": {
+        "en": [("Prana Mudra 🤲", "https://www.youtube.com/results?search_query=prana+mudra+energy+fatigue"), ("Surya Mudra 🤲", "https://www.youtube.com/results?search_query=surya+mudra+vitality+tiredness")],
+        "hi": [("प्राण मुद्रा 🤲", "https://www.youtube.com/results?search_query=prana+mudra+energy+fatigue"), ("सूर्य मुद्रा 🤲", "https://www.youtube.com/results?search_query=surya+mudra+vitality+tiredness")],
+        "ta": [("பிராண முத்திரை 🤲", "https://www.youtube.com/results?search_query=prana+mudra+energy+fatigue"), ("சூர்ய முத்திரை 🤲", "https://www.youtube.com/results?search_query=surya+mudra+vitality+tiredness")],
+        "te": [("ప్రాణ ముద్ర 🤲", "https://www.youtube.com/results?search_query=prana+mudra+energy+fatigue"), ("సూర్య ముద్ర 🤲", "https://www.youtube.com/results?search_query=surya+mudra+vitality+tiredness")],
+    },
+    "anger": {
+        "en": [("Shunya Mudra 🤲", "https://www.youtube.com/results?search_query=shunya+mudra+anger+calm"), ("Vayu Mudra 🤲", "https://www.youtube.com/results?search_query=vayu+mudra+anger+relief")],
+        "hi": [("शून्य मुद्रा 🤲", "https://www.youtube.com/results?search_query=shunya+mudra+anger+calm"), ("वायु मुद्रा 🤲", "https://www.youtube.com/results?search_query=vayu+mudra+anger+relief")],
+        "ta": [("சூன்ய முத்திரை 🤲", "https://www.youtube.com/results?search_query=shunya+mudra+anger+calm"), ("வாயு முத்திரை 🤲", "https://www.youtube.com/results?search_query=vayu+mudra+anger+relief")],
+        "te": [("శూన్య ముద్ర 🤲", "https://www.youtube.com/results?search_query=shunya+mudra+anger+calm"), ("వాయు ముద్ర 🤲", "https://www.youtube.com/results?search_query=vayu+mudra+anger+relief")],
+    },
+    "insomnia": {
+        "en": [("Gyan Mudra 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+sleep+insomnia"), ("Yoni Mudra 🤲", "https://www.youtube.com/results?search_query=yoni+mudra+deep+sleep")],
+        "hi": [("ज्ञान मुद्रा 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+sleep+insomnia"), ("योनि मुद्रा 🤲", "https://www.youtube.com/results?search_query=yoni+mudra+deep+sleep")],
+        "ta": [("ஞான முத்திரை 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+sleep+insomnia"), ("யோனி முத்திரை 🤲", "https://www.youtube.com/results?search_query=yoni+mudra+deep+sleep")],
+        "te": [("జ్ఞాన ముద్ర 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+sleep+insomnia"), ("యోని ముద్ర 🤲", "https://www.youtube.com/results?search_query=yoni+mudra+deep+sleep")],
+    },
+    "general": {
+        "en": [("Gyan Mudra 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+menstrual+health"), ("Apana Mudra 🤲", "https://www.youtube.com/results?search_query=apana+mudra+women+health")],
+        "hi": [("ज्ञान मुद्रा 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+menstrual+health"), ("अपान मुद्रा 🤲", "https://www.youtube.com/results?search_query=apana+mudra+women+health")],
+        "ta": [("ஞான முத்திரை 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+menstrual+health"), ("அபான முத்திரை 🤲", "https://www.youtube.com/results?search_query=apana+mudra+women+health")],
+        "te": [("జ్ఞాన ముద్ర 🤲", "https://www.youtube.com/results?search_query=gyan+mudra+menstrual+health"), ("అపాన ముద్ర 🤲", "https://www.youtube.com/results?search_query=apana+mudra+women+health")],
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Multilingual healing frequency music
+# ---------------------------------------------------------------------------
+MUSIC_BY_MOOD: dict[str, dict[str, tuple]] = {
+    "pain":     {"en": ("174 Hz – Pain Relief 🎵", "https://www.youtube.com/results?search_query=174hz+pain+relief+solfeggio"), "hi": ("174 Hz – दर्द निवारण 🎵", "https://www.youtube.com/results?search_query=174hz+pain+relief+solfeggio"), "ta": ("174 Hz – வலி நிவாரணம் 🎵", "https://www.youtube.com/results?search_query=174hz+pain+relief+solfeggio"), "te": ("174 Hz – నొప్పి నివారణ 🎵", "https://www.youtube.com/results?search_query=174hz+pain+relief+solfeggio")},
+    "stress":   {"en": ("432 Hz – Deep Calm 🎵", "https://www.youtube.com/results?search_query=432hz+stress+relief+calm+music"), "hi": ("432 Hz – गहरी शांति 🎵", "https://www.youtube.com/results?search_query=432hz+stress+relief+calm+music"), "ta": ("432 Hz – ஆழ்ந்த அமைதி 🎵", "https://www.youtube.com/results?search_query=432hz+stress+relief+calm+music"), "te": ("432 Hz – లోతైన శాంతి 🎵", "https://www.youtube.com/results?search_query=432hz+stress+relief+calm+music")},
+    "sadness":  {"en": ("528 Hz – Heart Heal 🎵", "https://www.youtube.com/results?search_query=528hz+emotional+healing+music"), "hi": ("528 Hz – हृदय उपचार 🎵", "https://www.youtube.com/results?search_query=528hz+emotional+healing+music"), "ta": ("528 Hz – இதய குணமாக்கல் 🎵", "https://www.youtube.com/results?search_query=528hz+emotional+healing+music"), "te": ("528 Hz – హృదయ నయం 🎵", "https://www.youtube.com/results?search_query=528hz+emotional+healing+music")},
+    "fatigue":  {"en": ("285 Hz – Energy Boost 🎵", "https://www.youtube.com/results?search_query=285hz+energy+healing+frequency"), "hi": ("285 Hz – ऊर्जा बढ़ाएं 🎵", "https://www.youtube.com/results?search_query=285hz+energy+healing+frequency"), "ta": ("285 Hz – ஆற்றல் அதிகரிப்பு 🎵", "https://www.youtube.com/results?search_query=285hz+energy+healing+frequency"), "te": ("285 Hz – శక్తి పెంపు 🎵", "https://www.youtube.com/results?search_query=285hz+energy+healing+frequency")},
+    "anger":    {"en": ("396 Hz – Release Anger 🎵", "https://www.youtube.com/results?search_query=396hz+release+anger+solfeggio"), "hi": ("396 Hz – क्रोध मुक्ति 🎵", "https://www.youtube.com/results?search_query=396hz+release+anger+solfeggio"), "ta": ("396 Hz – கோபம் விடுதலை 🎵", "https://www.youtube.com/results?search_query=396hz+release+anger+solfeggio"), "te": ("396 Hz – కోపం విముక్తి 🎵", "https://www.youtube.com/results?search_query=396hz+release+anger+solfeggio")},
+    "insomnia": {"en": ("Delta Waves – Deep Sleep 🎵", "https://www.youtube.com/results?search_query=delta+waves+deep+sleep+music"), "hi": ("डेल्टा वेव्स – गहरी नींद 🎵", "https://www.youtube.com/results?search_query=delta+waves+deep+sleep+music"), "ta": ("டெல்டா அலைகள் – ஆழ்ந்த தூக்கம் 🎵", "https://www.youtube.com/results?search_query=delta+waves+deep+sleep+music"), "te": ("డెల్టా వేవ్స్ – గాఢ నిద్ర 🎵", "https://www.youtube.com/results?search_query=delta+waves+deep+sleep+music")},
+    "general":  {"en": ("432 Hz – Balance & Heal 🎵", "https://www.youtube.com/results?search_query=432hz+menstrual+cycle+healing"), "hi": ("432 Hz – संतुलन और उपचार 🎵", "https://www.youtube.com/results?search_query=432hz+menstrual+cycle+healing"), "ta": ("432 Hz – சமநிலை & குணமாக்கல் 🎵", "https://www.youtube.com/results?search_query=432hz+menstrual+cycle+healing"), "te": ("432 Hz – సమతుల్యత & నయం 🎵", "https://www.youtube.com/results?search_query=432hz+menstrual+cycle+healing")},
+}
+
+# ---------------------------------------------------------------------------
+# Section titles
+# ---------------------------------------------------------------------------
+SECTION_TITLES = {
+    "en": {"yoga": "🧘 *Yoga*",  "mudra": "🤲 *Mudras*",       "music": "🎵 *Healing Music*"},
+    "hi": {"yoga": "🧘 *योग*",   "mudra": "🤲 *मुद्राएं*",      "music": "🎵 *उपचार संगीत*"},
+    "ta": {"yoga": "🧘 *யோகா*",  "mudra": "🤲 *முத்திரைகள்*",  "music": "🎵 *குணமளிக்கும் இசை*"},
+    "te": {"yoga": "🧘 *యోగా*",  "mudra": "🤲 *ముద్రలు*",       "music": "🎵 *హీలింగ్ మ్యూజిక్*"},
+}
+
+
 def build_wellness_links(mood_category: str, language: str = "en") -> str:
-    """Build yoga + mudra + music links section."""
-    titles = SECTION_TITLES.get(language, SECTION_TITLES["en"])
-    yoga_poses = YOGA_BY_MOOD.get(mood_category, YOGA_BY_MOOD["general"])
-    mudras = MUDRAS_BY_MOOD.get(mood_category, MUDRAS_BY_MOOD["general"])
-    music_name, music_url = MUSIC_BY_MOOD.get(mood_category, MUSIC_BY_MOOD["general"])
+    lang = language if language in ("en", "hi", "ta", "te") else "en"
+    titles = SECTION_TITLES.get(lang, SECTION_TITLES["en"])
+
+    yoga_poses = YOGA_BY_MOOD.get(mood_category, YOGA_BY_MOOD["general"]).get(lang, YOGA_BY_MOOD["general"]["en"])
+    mudras = MUDRAS_BY_MOOD.get(mood_category, MUDRAS_BY_MOOD["general"]).get(lang, MUDRAS_BY_MOOD["general"]["en"])
+    music_name, music_url = MUSIC_BY_MOOD.get(mood_category, MUSIC_BY_MOOD["general"]).get(lang, MUSIC_BY_MOOD["general"]["en"])
 
     lines = []
-
-    # Yoga
     lines.append(titles["yoga"])
     for name, url in yoga_poses:
         lines.append(f"• [{name}]({url})")
-
     lines.append("")
-
-    # Mudras
     lines.append(titles["mudra"])
     for name, url in mudras:
         lines.append(f"• [{name}]({url})")
-
     lines.append("")
-
-    # Frequency music
     lines.append(titles["music"])
     lines.append(f"• [{music_name}]({music_url})")
 
@@ -266,15 +280,14 @@ async def ask_grok(user_message: str, language: str = "en") -> str:
         if not content:
             raise GrokAPIError("Empty response from OpenRouter")
 
-        # Append wellness links for mood responses
         if is_mood:
             wellness = build_wellness_links(mood_category, language)
             content = f"{content.strip()}\n\n{wellness}"
 
         logger.info("OpenRouter success", extra={
             "tokens": data.get("usage", {}).get("total_tokens"),
-            "mood": is_mood,
             "mood_category": mood_category,
+            "language": language,
         })
         return content.strip()
 

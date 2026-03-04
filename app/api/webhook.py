@@ -39,12 +39,11 @@ async def telegram_webhook(request: Request) -> dict:
 
     logger.debug("Webhook update received", extra={"update_id": update.update_id})
 
-    if update.message and update.message.text:
+    if update.message and (update.message.text or update.message.location):
         try:
             await handle_message(update.message)
         except DatabaseError as exc:
             logger.error("Database error processing message", exc_info=exc)
-            # Return 200 to prevent retry storm
         except Exception as exc:
             logger.error("Unhandled error processing message", exc_info=exc)
 

@@ -4,7 +4,8 @@ services:
     runtime: python
     region: singapore
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    # ffmpeg is required by openai-whisper for audio decoding
+    buildCommand: apt-get install -y ffmpeg && pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2 --log-level warning
     healthCheckPath: /health
     envVars:
@@ -28,4 +29,9 @@ services:
         value: "512"
       - key: DEFAULT_CYCLE_LENGTH_DAYS
         value: "28"
+      # Whisper model size: "tiny" (fastest), "small" (recommended), "medium" (most accurate)
+      # "small" = ~500MB RAM, ~5-8s transcription on CPU
+      # "medium" = ~1.5GB RAM, ~12-18s — only use if Render plan allows
+      - key: WHISPER_MODEL
+        value: small
     autoDeploy: true

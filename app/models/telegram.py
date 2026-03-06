@@ -24,12 +24,26 @@ class TelegramLocation(BaseModel):
     longitude: float
 
 
+class TelegramVoice(BaseModel):
+    """
+    Telegram voice message object.
+    Sent when a user records and sends a voice note in the chat.
+    Audio is always OGG format encoded with OPUS codec.
+    """
+    file_id: str                     # Use this to download via getFile
+    file_unique_id: str              # Stable unique id (not for downloading)
+    duration: int                    # Length in seconds
+    mime_type: Optional[str] = None  # "audio/ogg"
+    file_size: Optional[int] = None  # bytes
+
+
 class TelegramMessage(BaseModel):
     message_id: int
     from_: Optional[TelegramUser] = Field(None, alias="from")
     chat: TelegramChat
     text: Optional[str] = None
     location: Optional[TelegramLocation] = None
+    voice: Optional[TelegramVoice] = None   # ← voice message support
     date: int = 0
 
     model_config = {"populate_by_name": True}

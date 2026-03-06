@@ -30,6 +30,7 @@ from app.services.hospital_service import find_hospitals
 from app.services.symptom_service import (
     is_serious_symptom, get_location_request, get_searching_msg,
 )
+from app.services.voice_service import transcribe_voice
 from app.utils.validators import (
     parse_date_input, validate_period_date, sanitize_text,
     is_casual_message, get_casual_response,
@@ -72,6 +73,12 @@ async def handle_message(message: TelegramMessage) -> None:
     # /start resets state
     if text.lower() in {"/start", "/start@sakhibot"}:
         await _handle_start(user, chat_id)
+        return
+
+    # ── Voice message ─────────────────────────────────────────────────────────
+    # User sent a voice note → transcribe with Whisper, then treat as typed text
+    if message.voice:
+        await _handle_voice(user, chat_id, message.voice.file_id)
         return
 
     # Location message — user shared their location
@@ -210,6 +217,71 @@ async def _handle_location(user: UserDocument, chat_id: int, lat: float, lon: fl
     except Exception as exc:
         logger.error("Hospital finder failed", exc_info=exc)
         await _send_safe(chat_id, "🚨 *Emergency:* 108  |  🏥 *Health Helpline:* 104")
+
+
+
+async def _handle_voice(user: UserDocument, chat_id: int, file_id: str) -> None:
+    """
+    Handle an incoming voice message.
+
+    Steps:
+      1. Acknowledge so user knows we're processing (can take 5-10s)
+      2. Transcribe with Whisper in the user's selected language
+      3. Echo back what we heard (builds trust + lets user spot errors)
+      4. Pass transcribed text through the normal message pipeline
+    """
+    lang = user.language
+
+    transcribing_msg = {
+        "en": "🎙️ Got your voice note! Transcribing…",
+        "hi": "🎙️ आपकी आवाज़ मिल गई! लिख रहे हैं…",
+        "ta": "🎙️ உங்கள் குரல் கிடைத்தது! எழுதுகிறோம்…",
+        "te": "🎙️ మీ వాయిస్ వచ్చింది! అక్షరాలకు మారుస్తున్నాం…",
+    }
+    await _send_safe(chat_id, transcribing_msg.get(lang, transcribing_msg["en"]))
+    await telegram_service.send_typing_action(chat_id)
+
+    try:
+        transcribed = await transcribe_voice(file_id, language=lang)
+    except Exception as exc:
+        logger.error("Voice transcription failed", exc_info=exc)
+        error_msg = {
+            "en": "😔 Sorry, I couldn't understand your voice note. Please try again or type your message.",
+            "hi": "😔 माफ़ करें, आवाज़ समझ नहीं आई। दोबारा कोशिश करें या टाइप करें।",
+            "ta": "😔 மன்னிக்கவும், குரல் புரியவில்லை. மீண்டும் முயலுங்கள் அல்லது தட்டச்சு செய்யுங்கள்.",
+            "te": "😔 క్షమించండి, మీ వాయిస్ అర్థం కాలేదు. మళ్ళీ ప్రయత్నించండి లేదా టైప్ చేయండి.",
+        }
+        await _send_safe(chat_id, error_msg.get(lang, error_msg["en"]))
+        return
+
+    if not transcribed:
+        empty_msg = {
+            "en": "🤔 I heard silence. Please speak clearly and try again.",
+            "hi": "🤔 कुछ सुनाई नहीं दिया। स्पष्ट बोलकर दोबारा भेजें।",
+            "ta": "🤔 எதுவும் கேட்கவில்லை. தெளிவாக பேசி மீண்டும் அனுப்புங்கள்.",
+            "te": "🤔 ఏమీ వినపడలేదు. స్పష్టంగా మాట్లాడి మళ్ళీ పంపండి.",
+        }
+        await _send_safe(chat_id, empty_msg.get(lang, empty_msg["en"]))
+        return
+
+    # Echo transcription so user can verify we heard correctly
+    echo_prefix = {
+        "en": f"🗣️ *I heard:* _{transcribed}_\n\n",
+        "hi": f"🗣️ *मैंने सुना:* _{transcribed}_\n\n",
+        "ta": f"🗣️ *நான் கேட்டது:* _{transcribed}_\n\n",
+        "te": f"🗣️ *నేను విన్నది:* _{transcribed}_\n\n",
+    }
+    await _send_safe(chat_id, echo_prefix.get(lang, echo_prefix["en"]))
+
+    # Process transcribed text exactly like a typed message
+    if user.state in (ConversationState.NEW, ConversationState.AWAITING_LANGUAGE):
+        await _handle_language_selection(user, chat_id, transcribed)
+    elif user.state == ConversationState.AWAITING_LAST_PERIOD:
+        await _handle_period_date(user, chat_id, transcribed)
+    elif user.state == ConversationState.ACTIVE:
+        await _handle_active(user, chat_id, transcribed)
+    else:
+        await _handle_start(user, chat_id)
 
 
 async def _handle_city_text_fallback(user: UserDocument, chat_id: int, city: str) -> None:
